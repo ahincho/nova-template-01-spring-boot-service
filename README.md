@@ -56,7 +56,9 @@ A success is the same envelope with `"success": true` and the item in `data`.
    GitHub copies the files with a clean history.
 2. Rename what the template names, as below.
 3. Replace the sample with the service's own resource, and this README with the service's own.
-4. Run `./gradlew build` and `./gradlew novaDocker` before the first commit.
+4. Run `./gradlew novaFormat`, then `./gradlew build` and `./gradlew novaDocker`, before the first commit. The
+   formatter wraps a line by its length, so a shorter name can change how a line is wrapped, and the format
+   check of `build` fails on it until `novaFormat` rewrites the file.
 
 ### Renaming is manual for now
 
@@ -69,7 +71,7 @@ exist yet**, so until it ships the rename is by hand. This is everything the tem
 | the group | `gradle.properties`, `group` | `pe.edu.nova.java.templates` |
 | the project name, which is also the name of the image | `settings.gradle.kts`, `rootProject.name` | `nova-template-spring-boot-service` |
 | the application name | `src/main/resources/application.yaml`, `spring.application.name` | `nova-template-spring-boot-service` |
-| the Java package | the folders `src/main/java/pe/edu/nova/java/templates/springboot` and `src/test/java/pe/edu/nova/java/templates/springboot`; every `package` and `import` line; and the two places `ArchitectureTest` names it, `@AnalyzeClasses(packages = ...)` and `basePackage()` | `pe.edu.nova.java.templates.springboot` |
+| the Java package | the folders `src/main/java/pe/edu/nova/java/templates/springboot` and `src/test/java/pe/edu/nova/java/templates/springboot`; every `package` and `import` line; and `BASE_PACKAGE` in `ArchitectureTest`, the only place a test names it | `pe.edu.nova.java.templates.springboot` |
 | the application class | `ServiceApplication` | the service's own, such as `OrdersApplication` |
 | the sample | the `Item*` classes, `/v1/items`, `ITEM_NOT_FOUND`, `ItemApiTest` and `ItemServiceTest`, and the two calls to `/v1/items` in the `image` job of `.github/workflows/ci.yml` | the service's own resource |
 | the image name in CI | `.github/workflows/ci.yml`, `IMAGE` in the `image` job | `nova-template-spring-boot-service:ci` |
