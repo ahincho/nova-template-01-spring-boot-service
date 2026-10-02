@@ -28,7 +28,7 @@ publish versions.
 
 | Method | Path | What it does |
 |---|---|---|
-| `POST` | `/v1/items` | creates an item and answers 201 with `Location`. A title that is blank or longer than 100 characters, or a quantity that is missing or not positive, is a 400 with one error per field |
+| `POST` | `/v1/items` | creates an item and answers 201 with `Location`. A title that is blank or longer than 100 characters, or a quantity that is missing or not positive, is a 400 that names each failed field |
 | `GET` | `/v1/items/{id}` | returns an item. A missing one is a 404 with the code `ITEM_NOT_FOUND` and `metadata.traceId` |
 
 The service does not decide any error status. `ItemService` throws what went wrong as a Nova error, and the
@@ -138,6 +138,9 @@ environment, and the configuration reaches it as environment variables.
   inference list, such as `name`, `email`, `phone`, `dni`, `card`, `account` or `ip`, even without an
   annotation. That is why the sample's field is `title`: `"name": "Taza"` comes out as `"T***"`.
   `@SkipMasking` on a field opts it out, and `nova.mask.enabled=false` turns the masking off.
+- **A controller cannot use Nova's own classes.** `LayeredArchitectureTest` lets a controller reach only the
+  layers, `java`, `jakarta` and Spring, so a controller that throws a `DomainError` or an `ApplicationError`
+  fails the architecture test. The sample throws from `ItemService`, and the controller only translates HTTP.
 - **Bean Validation is declared by the service.** The meta-starter does not declare it. It only arrives
   through the observability starter, and a service should not rely on that.
 - **The secrets starter is on the classpath and reads no store** until the service sets `nova.secrets.import`
@@ -156,6 +159,10 @@ environment, and the configuration reaches it as environment variables.
 | `owasp` | the dependencies against known CVEs, failing at a CVSS of 7 or more |
 | `sbom` | that the CycloneDX SBOM is generated |
 | `image` | that `novaDocker` builds the image, that the container answers `UP` on `/actuator/health`, and that a `POST` and a `GET` of an item work inside it |
+
+The jobs need no secret or variable of the repository: they pass with the `GITHUB_TOKEN` of the workflow.
+`NOVA_PACKAGES_READ_TOKEN` and `NVD_API_KEY` are optional, and without the second one OWASP warns and uses the
+shared NVD mirror.
 
 A pull request that breaks any of them is not merged, so `main` always builds. A template also ages: when
 a starter or the toolchain publishes a version, the template moves to it in its own pull request, and the CI
