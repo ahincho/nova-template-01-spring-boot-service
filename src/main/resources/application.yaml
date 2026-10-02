@@ -1,0 +1,20 @@
+server:
+  # El puerto que expone la imagen del toolchain; SERVER_PORT lo cambia sin tocar el archivo.
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: nova-template-spring-boot-service
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+nova:
+  observability:
+    otlp:
+      # Vacío, el servicio no exporta nada: las trazas y las métricas siguen dentro del proceso. Con el
+      # endpoint de un colector, exporta trazas, métricas y logs.
+      endpoint: ${NOVA_OBSERVABILITY_OTLP_ENDPOINT:}
