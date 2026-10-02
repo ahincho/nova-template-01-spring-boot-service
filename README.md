@@ -12,10 +12,10 @@ known to build.
 
 | Piece | What it gives the service |
 |---|---|
-| `pe.edu.nova.java.spring-boot-service` 2.0.0 | the Java toolchain of Nova ([ADR-044](https://github.com/ahincho/nova-shared-01-docs/blob/main/adrs/java/ADR-044-toolchain-de-java.md)): Java 25, Spring Boot with its BOM, formatting, Checkstyle, a minimum of 80 % line coverage, commit validation and its git hook, OWASP, the SBOM and the container image |
-| `nova-spring-boot-starter` 2.0.0 | the meta-starter: Spring Boot web, Jackson and Actuator, the API envelope with the layered errors of [ADR-031](https://github.com/ahincho/nova-shared-01-docs/blob/main/adrs/shared/ADR-031-modulo-de-errores-por-capas-con-trazabilidad.md), masking, observability and secrets |
+| `pe.edu.nova.java.spring-boot-service` 2.1.0 | the Java toolchain of Nova ([ADR-044](https://github.com/ahincho/nova-shared-01-docs/blob/main/adrs/java/ADR-044-toolchain-de-java.md)): Java 25, Spring Boot with its BOM, formatting, Checkstyle, a minimum of 80 % line coverage, commit validation and its git hook, OWASP, the SBOM, the container image, and for the tests Spring Boot's test starters with MockMvc and `nova-architecture-rules`, which a service does not declare |
+| `nova-spring-boot-starter` 3.0.0 | the meta-starter: Spring Boot web, Jackson and Actuator, the API envelope with the layered errors of [ADR-031](https://github.com/ahincho/nova-shared-01-docs/blob/main/adrs/shared/ADR-031-modulo-de-errores-por-capas-con-trazabilidad.md), masking of annotated fields, observability and secrets |
 | a sample resource, `items` | a `POST` with Bean Validation and a `GET` by id that throws `DomainError.notFound(...)` with its own code, organized in `controller`, `service`, `repository`, `entity` and `dto` |
-| tests | the architecture rules of `nova-architecture-rules`, the API contract with the envelope, the 404 and the 400, and the use case without Spring |
+| tests | the architecture rules of `nova-architecture-rules`, the API contract with the envelope, the 404 and the 400, the masking of annotated fields only, and the use case without Spring |
 | the container image | `./gradlew novaDocker`, from the toolchain |
 | CI | the reusable workflows of [`nova-shared-02-pipelines`](https://github.com/ahincho/nova-shared-02-pipelines), the commit validation and a check of the image |
 | `.env.example` and the license | the variables the service reads, and EPL-2.0 |
@@ -78,7 +78,9 @@ exist yet**, so until it ships the rename is by hand. This is everything the tem
 
 Keep the five layers under the new package. `LayeredArchitectureTest` looks for `controller`, `service`,
 `repository`, `entity` and `dto` there, and a rule that finds no class in its layer fails instead of
-passing, so a service without persistence still keeps a `repository` package.
+passing, so a service without persistence still keeps a `repository` package. A service that really has no
+such layer can allow it with `archRule.failOnEmptyShould=false` in `src/test/resources/archunit.properties`,
+which turns the check off for every rule.
 
 ## Run it
 
@@ -120,6 +122,7 @@ Conventional Commits, and the CI validates every commit of a pull request.
 | `ItemApiTest` | the whole service with its starters: the envelope, the 404 with its own code and `metadata.traceId`, and the 400 with one error per field |
 | `ItemServiceTest` | the use case without Spring or HTTP, which is what throwing a Nova error and not a status buys |
 | `HealthEndpointTest` | the service is up with no collector configured, and Actuator is not wrapped in the envelope |
+| `MaskingTest` | masking is opt-in: a field called `name` is answered as is, and only a field with `@Masked` comes out masked |
 
 ## The container image
 
@@ -136,13 +139,16 @@ environment, and the configuration reaches it as environment variables.
 
 ## Things to know
 
-- **The mask starter masks by field name.** It masks the `String` fields of a response whose name is on its
-  inference list, such as `name`, `email`, `phone`, `dni`, `card`, `account` or `ip`, even without an
-  annotation. That is why the sample's field is `title`: `"name": "Taza"` comes out as `"T***"`.
-  `@SkipMasking` on a field opts it out, and `nova.mask.enabled=false` turns the masking off.
-- **A controller cannot use Nova's own classes.** `LayeredArchitectureTest` lets a controller reach only the
-  layers, `java`, `jakarta` and Spring, so a controller that throws a `DomainError` or an `ApplicationError`
-  fails the architecture test. The sample throws from `ItemService`, and the controller only translates HTTP.
+- **Masking is opt-in.** The mask starter masks a field only when the code marks it, with `@Masked` on the
+  field or `@MaskedClass` on its class. A `name` or an `email` without annotation is answered as is.
+  `nova.mask.infer-by-field-name: true` brings back the masking by the name of the field, and
+  `nova.mask.enabled: false` turns the masking off.
+- **A controller may call the Nova libraries, not the starters.** `LayeredArchitectureTest` lets a controller
+  call the layers of the service, `java`, `jakarta`, Spring and the framework-free libraries,
+  `pe.edu.nova.java.libs..`, so it can throw an `ApplicationError` or a `DomainError`. A call into a starter,
+  `pe.edu.nova.java.starters..`, or into any package outside that list fails the architecture test; an
+  annotation is not a call. The sample still throws from `ItemService`, because a missing item is a rule of
+  the domain that holds behind any entry point, and the controller only translates HTTP.
 - **Bean Validation is declared by the service.** The meta-starter does not declare it. It only arrives
   through the observability starter, and a service should not rely on that.
 - **The secrets starter is on the classpath and reads no store** until the service sets `nova.secrets.import`
